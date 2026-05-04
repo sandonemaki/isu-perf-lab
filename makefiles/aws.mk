@@ -7,7 +7,7 @@ aws.status: ## AWSのインスタンス状態とCFnスタック一覧
 	@aws ec2 describe-instances --filters 'Name=tag:Name,Values=web,bench' --query 'Reservations[].Instances[].{Name:Tags[?Key==`Name`]|[0].Value,State:State.Name,PublicIp:PublicIpAddress,InstanceId:InstanceId}' --output table
 
 ################################################################################
-# CFnスタック作成
+# CFnスタック作成と削除
 ################################################################################
 .PHONY: aws.create-cfn
 aws.create-cfn: validate-ssh-private-key ## AWSのCFnスタックを作成
@@ -17,6 +17,16 @@ aws.create-cfn: validate-ssh-private-key ## AWSのCFnスタックを作成
 		ParameterKey=MyIp,ParameterValue=$(MY_IP)
 	@echo "$(STACK_NAME): 作成中です(約1分かかります)"
 	@time aws cloudformation wait stack-create-complete --stack-name $(STACK_NAME)
+
+.PHONY: aws.delete-cfn
+aws.delete-cfn: ## AWSのCFnスタックを削除(約1.5分)
+	@echo 'Before status'
+	@make aws.status
+	@aws cloudformation delete-stack --stack-name $(STACK_NAME)
+	@echo '削除中です(約1.5~2分かかります)'
+	@time aws cloudformation wait stack-delete-complete --stack-name $(STACK_NAME)
+	@echo 'After status'
+	@make aws.status
 
 ################################################################################
 # 停止
@@ -52,6 +62,7 @@ aws.up-web: ## webインスタンスを起動
 	$(eval WEB_INSTANCE_ID := $(shell aws ec2 describe-instances --filters "Name=tag:aws:cloudformation:stack-id,Values=$(STACK_ID)" 'Name=tag:Name,Values=web' --query 'Reservations[].Instances[].InstanceId' --output text))
 	@aws ec2 start-instances --instance-ids $(WEB_INSTANCE_ID)
 	@aws ec2 wait instance-running --instance-ids $(WEB_INSTANCE_ID)
+	@make aws.add-myip-inbound-rule
 
 .PHONY: aws.up-bench
 aws.up-bench: ## benchインスタンスを起動
@@ -59,6 +70,30 @@ aws.up-bench: ## benchインスタンスを起動
 	$(eval BENCH_INSTANCE_ID := $(shell aws ec2 describe-instances --filters "Name=tag:aws:cloudformation:stack-id,Values=$(STACK_ID)" 'Name=tag:Name,Values=bench' --query 'Reservations[].Instances[].InstanceId' --output text))
 	@aws ec2 start-instances --instance-ids $(BENCH_INSTANCE_ID)
 	@aws ec2 wait instance-running --instance-ids $(BENCH_INSTANCE_ID)
+	@make aws.add-myip-inbound-rule
+
+################################################################################
+# MY_IPの追加と掃除
+################################################################################
+.PHONY: aws.add-myip-inbound-rule
+aws.add-myip-inbound-rule: ## AWSのSecurityGroupのMY_IP関連のインバウンドルールを追加
+	$(eval SG_ID := $(shell aws ec2 describe-security-groups --filters "Name=tag:aws:cloudformation:stack-name,Values=$(STACK_NAME)" --query 'SecurityGroups[0].GroupId' --output text))
+	$(eval MY_IP := $(shell curl -fsS https://checkip.amazonaws.com))
+	@if aws ec2 describe-security-groups --group-ids "$(SG_ID)" --query 'SecurityGroups[0].IpPermissions[].IpRanges[].CidrIp' --output text | grep -q "$(MY_IP)/32"; then \
+		echo "MY_IP許可済み: $(MY_IP)/32"; \
+	else \
+		aws ec2 authorize-security-group-ingress --group-id "$(SG_ID)" --ip-permissions '[{"IpProtocol": "-1", "IpRanges": [{"CidrIp": "$(MY_IP)/32", "Description": "purpose=admin,myip=true,stack=private-isu"}]}]'; \
+	fi
+	@ssh web   -F "${SSH_CONFIG_FILE}" 'echo "ssh web:   OK"' || echo 'ssh web:   SSH NG'
+	@ssh bench -F "${SSH_CONFIG_FILE}" 'echo "ssh bench: OK"' || echo 'ssh bench: SSH NG'
+
+.PHONY: aws.clean-and-add-myip-inbound-rule
+aws.clean-and-add-myip-inbound-rule: ## AWSのSecurityGroupのMY_IP関連のインバウンドルールを全削除して、追加
+	$(eval SG_ID := $(shell aws ec2 describe-security-groups --filters "Name=tag:aws:cloudformation:stack-name,Values=$(STACK_NAME)" --query 'SecurityGroups[0].GroupId' --output text))
+	@for cidr in $(shell aws ec2 describe-security-groups --group-ids $(SG_ID) --query 'SecurityGroups[0].IpPermissions[].IpRanges[].CidrIp' --output json | jq -r '.[] | select(endswith("/32"))'); do \
+		aws ec2 revoke-security-group-ingress --group-id $(SG_ID) --ip-permissions '[{"IpProtocol": "-1", "IpRanges": [{"CidrIp": "'$$cidr'"}]}]'; \
+	done
+	@make aws.add-myip-inbound-rule
 
 ################################################################################
 # SSHの設定
