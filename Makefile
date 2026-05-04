@@ -5,14 +5,20 @@ include makefiles/ssh.mk
 ################################################################################
 # Main
 ################################################################################
+.PHONY: setup
+setup: ## ツール群をインストール
+	@scripts/00-setup.sh web
+
 .PHONY: deploy
 deploy: ## デプロイ
 	@scripts/01-deploy-app.sh web
 	@scripts/01-deploy-nginx.sh web
+	@scripts/01-deploy-mysql.sh web
 
 .PHONY: bench
 bench: ## ベンチマークの実行
 	@scripts/02-bench.sh
+	@scripts/02-prepare-analyze.sh web $$(jq -r '.score' tmp/result.json)
 
 ################################################################################
 # Utility-Command help
