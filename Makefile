@@ -1,6 +1,7 @@
 include makefiles/tool.mk
 include makefiles/aws.mk
 include makefiles/ssh.mk
+include makefiles/perf.mk
 
 ################################################################################
 # Main
@@ -14,6 +15,10 @@ deploy: ## デプロイ
 	@scripts/01-deploy-app.sh web
 	@scripts/01-deploy-nginx.sh web
 	@scripts/01-deploy-mysql.sh web
+
+.PHONY: analyze
+analyze: ## 分析
+	@scripts/04-store-results.sh host.docker.internal
 
 .PHONY: bench
 bench: ## ベンチマークの実行
