@@ -18,10 +18,16 @@ deploy: ## デプロイ
 
 .PHONY: analyze
 analyze: ## 分析
-	@scripts/04-store-results.sh host.docker.internal
+	@scripts/03-analyze.sh
+	@bash -c ' \
+	scripts/04-store-nginx-access-runs.sh host.docker.internal & \
+	scripts/04-store-results.sh host.docker.internal & \
+	wait;'
+
 
 .PHONY: bench
 bench: ## ベンチマークの実行
+	@scripts/02-log-rotate.sh web
 	@scripts/02-bench.sh
 	@scripts/02-prepare-analyze.sh web $$(jq -r '.score' tmp/result.json)
 
