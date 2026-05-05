@@ -46,6 +46,15 @@ if ! rsync -az "$TARGET_HOST":/var/log/nginx/access.log "$TMP_BENCH_SCORE_DIR/va
   rsync -az "$TARGET_HOST":~/dummy-nginx-access.log "$TMP_BENCH_SCORE_DIR/var/log/nginx/access.log"
 fi
 
+mkdir -p "$TMP_BENCH_SCORE_DIR/var/log/mysql"
+
+## MySQLスロークエリログをダウンロード
+# ログをOFFにしていて存在しない場合は、ダミーログを使用
+if ! rsync -az "$TARGET_HOST":/var/log/mysql/mysql-slow.log "$TMP_BENCH_SCORE_DIR/var/log/mysql/mysql-slow.log" 2>/dev/null; then
+  log_info "MySQLのスロークエリログが見つかりません。ダミーログを使用します。"
+  rsync -az "$TARGET_HOST":~/dummy-mysql-slow.log "$TMP_BENCH_SCORE_DIR/var/log/mysql/mysql-slow.log"
+fi
+
 # 現在日時から70秒前をベンチマーク開始時刻とする
 started_at="$(date -u -v-70S '+%Y-%m-%dT%H:%M:%SZ')"
 ended_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
