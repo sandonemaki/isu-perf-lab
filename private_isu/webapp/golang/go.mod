@@ -3,11 +3,13 @@ module github.com/catatsuy/private-isu/webapp/golang
 go 1.25.0
 
 require (
+	github.com/XSAM/otelsql v0.42.0
 	github.com/bradfitz/gomemcache v0.0.0-20250403215159-8d39553ac7cf
 	github.com/bradleypeabody/gorilla-sessions-memcache v0.0.0-20240916143655-c0e34fd2f304
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gorilla/sessions v1.4.0
+	github.com/grafana/pyroscope-go v1.3.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/riandyrn/otelchi v0.12.3
 	go.opentelemetry.io/otel v1.43.0
@@ -17,7 +19,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/XSAM/otelsql v0.42.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -25,7 +26,9 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.10 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/memcachier/mc/v3 v3.0.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
