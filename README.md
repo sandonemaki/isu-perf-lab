@@ -28,6 +28,41 @@ make aws.setup-ssh-config   # SSH設定を新しいIPで更新
 
 ---
 
+## デプロイの種類と使いどころ
+
+| コマンド | 何をデプロイするか | いつ使うか |
+| --- | --- | --- |
+| `make deploy` | Goアプリ・Nginx・MySQL設定 | **チューニング中に毎回**（コードや設定を変えたとき） |
+| `make perf.deploy` | ClickHouse・Grafana・OTel Collector | **初回セットアップ時** または監視設定を変えたとき |
+| `make setup` | apt・mysqldef・Docker・OTel Collector本体 | **サーバー作り直し時のみ**（EC2を再作成したとき） |
+
+### チューニング中の基本サイクル
+
+```
+app.go を編集
+    ↓
+make deploy       # Goアプリをwebサーバーに反映
+    ↓
+make bench        # ベンチマーク実行（トレース・ログが生成される）
+    ↓
+make analyze      # ログ解析 → ClickHouseに保存
+    ↓
+make perf.open    # Grafanaで結果を確認
+```
+
+### `otel_traces` にデータを入れるには
+
+Grafanaのトレース系クエリ（`otel_traces` テーブル）にデータが入るのは、**OTel対応済みのGoアプリでベンチマークを実行した後**です。
+
+```bash
+make deploy   # OTel対応のGoアプリをデプロイ（初回または app.go 変更後）
+make bench    # ベンチ実行 → トレースが otel_traces に保存される
+```
+
+`make analyze` は不要です（トレースはGoアプリから直接OTel Collector経由でClickHouseに送られます）。
+
+---
+
 ## 通常の作業フロー
 
 ```bash
