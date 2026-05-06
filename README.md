@@ -36,6 +36,68 @@ make analyze    # ② ログ解析 → ClickHouseに保存
 make perf.open  # ③ Grafana・ClickHouseをブラウザで開く
 ```
 
+Grafanaで表を表示するには `make bench` → `make analyze` でClickHouseにデータを入れる必要があります。
+`make perf.open-ch` はClickHouseのWeb UIを開くだけで、データを作る操作ではありません。
+
+| コマンド | データへの影響 |
+| --- | --- |
+| `make bench` | ベンチマーク実行・ログ取得（`results/` にファイルが増える） |
+| `make analyze` | ログを解析してClickHouseにデータを保存 ← **ここでデータが入る** |
+| `make perf.open-ch` | ClickHouse Web UIを開くだけ（データの確認・手動クエリ用） |
+| `make perf.open-grafana` | GrafanaをブラウザW（ClickHouseにデータがあれば表示される） |
+
+---
+
+## webサーバーに ClickHouse・Grafana をデプロイして使う場合
+
+ローカルのDockerを使わず、webサーバー上で ClickHouse・Grafana を動かす構成です。
+
+### ① ローカルのコンテナを停止
+
+```bash
+docker compose down   # ローカルの ClickHouse・Grafana を停止
+```
+
+### ② webサーバーにデプロイ
+
+```bash
+make perf.deploy      # ClickHouse・Grafana を webサーバーに起動
+```
+
+### ③ 通常の作業フロー（webサーバー向け）
+
+```bash
+make bench                # ベンチマーク実行 → ログダウンロード
+make analyze              # ログ解析 → webサーバーの ClickHouse に保存
+make perf.open-grafana    # webサーバーの Grafana をブラウザで開く
+make perf.open-ch         # webサーバーの ClickHouse Web UI をブラウザで開く
+```
+
+`make perf.open-grafana` / `make perf.open-ch` は `perf.define-variables` によって接続先を自動判定します。
+
+| 状態 | 接続先 |
+| --- | --- |
+| ローカルのDockerが起動中 | `localhost` |
+| ローカルのDockerが停止中 | webサーバーのIP |
+
+---
+
+## `make perf.deploy` でローカル起動中のメッセージが出た場合
+
+`make perf.deploy` を実行したときに以下のメッセージが出た場合：
+
+```
+パフォーマンス計測環境はローカルにデプロイされています
+```
+
+ローカルのDockerで ClickHouse と Grafana がすでに起動しています。
+ローカルのコンテナを停止してから、再度 `make perf.deploy` を実行してください。
+
+```bash
+docker compose down   # ローカルのコンテナを停止
+make perf.deploy      # webサーバーにデプロイ
+```
+
 ---
 
 ## SQLを更新した場合（テーブル定義の変更）
