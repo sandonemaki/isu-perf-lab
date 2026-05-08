@@ -52,6 +52,51 @@ echo "mysqldef $(mysqldef --version)"
 EOF
 }
 
+# Set up Docker's apt repository.
+# ref: https://docs.docker.com/engine/install/ubuntu/
+# 何度実行してもOK
+setup_docker() {
+  ssh -F "$SSH_CONFIG_FILE" -o BatchMode=yes "$TARGET_HOST" <<'EOF'
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+sudo -n apt-get -qq update
+sudo -n apt-get -qq install -y ca-certificates curl
+sudo -n install -m 0755 -d /etc/apt/keyrings
+sudo -n curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo -n chmod a+r /etc/apt/keyrings/docker.asc
+
+sudo -n tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOT
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOT
+
+sudo -n apt-get -qq update
+sudo -n apt-get -qq install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+sudo -n usermod -aG docker isucon
+docker -v
+EOF
+}
+
+# Set up OpenTelemetry Collector Contrib distribution
+# ref: https://github.com/open-telemetry/opentelemetry-collector-contrib
+# 実際にdebなどを配布しているリポジトリは別(専用のリポジトリがある)
+# 何度実行してもOK
+setup_otelcol_contrib() {
+  ssh -F "$SSH_CONFIG_FILE" -o BatchMode=yes "$TARGET_HOST" <<'EOF'
+set -euo pipefail
+
+curl -fsSLO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.142.0/otelcol-contrib_0.142.0_linux_$(dpkg --print-architecture).deb
+sudo -n apt-get install -qq ./otelcol-contrib_0.142.0_linux_$(dpkg --print-architecture).deb
+
+/usr/bin/otelcol-contrib --version
+EOF
+}
+
 start_timer "$0"
 (($# == 1)) || (echo '引数は1つだけ必要です' >&2 && usage)
 readonly TARGET_HOST="$1"
@@ -62,5 +107,7 @@ ssh -F "$SSH_CONFIG_FILE" "$TARGET_HOST" 'touch ~/.hushlogin' 2>&1 || {
 
 setup_apt
 setup_mysqldef
+setup_docker
+setup_otelcol_contrib
 
 end_timer "$0"

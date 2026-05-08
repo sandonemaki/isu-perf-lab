@@ -8,7 +8,10 @@ include makefiles/perf.mk
 ################################################################################
 .PHONY: setup
 setup: ## ツール群をインストール
-	@scripts/00-setup.sh web
+	@bash -c ' \
+	scripts/00-setup.sh web & \
+	scripts/00-setup.sh perf & \
+	wait;'
 
 .PHONY: deploy
 deploy: ## デプロイ
@@ -18,11 +21,15 @@ deploy: ## デプロイ
 
 .PHONY: analyze
 analyze: ## 分析
+	$(eval PERF_STACK_ID := $(shell aws cloudformation describe-stacks --stack-name $(PERF_STACK_NAME) --query 'Stacks[0].StackId' --output text 2>/dev/null || true))
+	$(eval WEB_HOST_IP  := $(shell ssh -F ${SSH_CONFIG_FILE} -G web | grep '^hostname ' | cut -d ' ' -f2))
+	$(eval PERF_HOST_IP := $(shell ssh -F ${SSH_CONFIG_FILE} -G perf | grep '^hostname ' | cut -d ' ' -f2))
+	$(eval TARGET_HOST  := $(if $(shell docker compose exec clickhouse echo 'true' 2>/dev/null),localhost,$(if $(PERF_STACK_ID),$(PERF_HOST_IP),$(WEB_HOST_IP))))
 	@scripts/03-analyze.sh
 	@bash -c ' \
-	scripts/04-store-slow-queries.sh host.docker.internal & \
-	scripts/04-store-nginx-access-runs.sh host.docker.internal & \
-	scripts/04-store-results.sh host.docker.internal & \
+	scripts/04-store-slow-queries.sh $(TARGET_HOST) & \
+	scripts/04-store-nginx-access-runs.sh $(TARGET_HOST) & \
+	scripts/04-store-results.sh $(TARGET_HOST) & \
 	wait;'
 
 
