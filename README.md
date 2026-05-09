@@ -96,7 +96,7 @@ Grafanaでログ系の集計を表示するには `make bench` → `make analyze
 | `PERF_STACK_ID` が存在（perf EC2あり） | OTel Gateway → **perf インスタンス**、OTel Agent → **web インスタンス** |
 | `PERF_STACK_ID` が未設定（perf EC2なし） | OTel Gateway → **web インスタンス** |
 
-`make perf.open` / `make perf.open-grafana` / `make perf.open-ch` も同様に接続先を自動判定します。
+`make perf.open` / `make perf.open-grafana` / `make perf.-ch` も同様に接続先を自動判定します。
 
 | 状態 | 接続先 |
 | --- | --- |
@@ -121,6 +121,39 @@ perf インスタンスまたは web インスタンスにデプロイしたい�
 docker compose down   # ローカルのコンテナを停止
 make perf.deploy      # perf/webインスタンスにデプロイ
 ```
+
+---
+
+## Grafanaダッシュボードを更新する場合
+
+### 正しい手順
+
+1. ローカルのダッシュボードファイルを直接編集する
+
+```
+var/lib/grafana/dashboards/sample-dashboad-1778073198264.json
+```
+
+2. EC2 に反映する
+
+```bash
+make perf.deploy
+```
+
+`updateIntervalSeconds: 10` の設定により、rsync 後10秒以内に Grafana が自動反映します。
+
+### やってはいけないこと
+
+| NG操作 | 理由 |
+|--------|------|
+| Grafana UI 上で「Save dashboard（別名保存）」 | 新しいファイルが EC2 上に生成され、同じ UID を持つファイルが複数できる |
+| EC2 上でファイルを直接編集 | ローカルとの差分が生まれ、次回 `make perf.deploy` で上書きされて消える |
+
+### なぜ UID の重複が問題になるか
+
+Grafana のダッシュボードは `uid` フィールドで識別されます。同じ `uid` を持つファイルが複数ある場合、Grafana はファイルをアルファベット順に処理しますが、バージョンの大小やスキャンタイミングによって**どのファイルが表示されるか不定**になります。
+
+ダッシュボードファイルは `var/lib/grafana/dashboards/` 内の1ファイルだけを維持し、そのファイルを直接編集してください。
 
 ---
 
