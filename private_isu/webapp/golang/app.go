@@ -305,15 +305,12 @@ func getFlash(w http.ResponseWriter, r *http.Request, key string) string {
 }
 
 func makePostsNew(ctx context.Context, results []Post, csrfToken string, allComments bool) ([]Post, error) {
+	if len(results) == 0 {
+		return []Post{}, nil
+	}
 	var posts []Post
 
-	for _, p := range results {
-		err := db.GetContext(ctx, &p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		query := `
+	rawQuery := `
 SELECT
   comments.id as comment_id
   , comments.post_id as comment_post_id
@@ -329,18 +326,49 @@ SELECT
   , users.created_at as user_created_at
 FROM comments
 JOIN users ON comments.user_id = users.id
-WHERE comments.post_id = ?
+WHERE post_id IN (?)
 ORDER BY comments.created_at DESC
 `
-		if !allComments {
-			query += " LIMIT 3"
-		}
-		var commentUsers []CommentUser
-		err = db.SelectContext(ctx, &commentUsers, query, p.ID)
+
+	// コメントをまとめて取得
+	postIds := make([]int, len(results))
+	for i, p := range results {
+		postIds[i] = p.ID
+	}
+	query, args, err := sqlx.In(rawQuery, postIds)
+	if err != nil {
+		fmt.Println("コメントをまとめて取得で失敗1:", err)
+		return nil, err
+	}
+	query = db.Rebind(query)
+	var commentUsers []CommentUser
+	err = db.SelectContext(ctx, &commentUsers, query, args...)
+	if err != nil {
+		fmt.Println("コメントをまとめて取得で失敗2:", err)
+		return nil, err
+	}
+	builtComments := buildComments(commentUsers)
+
+	commentsMap := map[int][]Comment{}
+	for _, c := range builtComments {
+		commentsMap[c.PostID] = append(commentsMap[c.PostID], c)
+	}
+
+	for _, p := range results {
+		err := db.GetContext(ctx, &p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
 		if err != nil {
 			return nil, err
 		}
-		comments := buildComments(commentUsers)
+
+		comments := commentsMap[p.ID]
+
+		if !allComments {
+			limit := len(comments)
+			if limit > 3 {
+				limit = 3
+			}
+			comments = comments[:limit]
+		}
 
 		// reverse
 		for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
