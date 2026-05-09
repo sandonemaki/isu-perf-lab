@@ -549,25 +549,24 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	postUsers := []PostUser{}
 
 	query := `
-SELECT
+	SELECT /*+ NO_INDEX(posts user_id_and_created_at_idx) */
   posts.id as post_id
   , posts.user_id as post_user_id
   , posts.body as post_body
   , posts.mime as post_mime
   , posts.created_at as post_created_at
-
   , users.id as user_id
   , users.account_name as user_account_name
   , users.passhash as user_passhash
   , users.authority as user_authority
   , users.del_flg as user_del_flg
   , users.created_at as user_created_at
-FROM posts
-JOIN users ON posts.user_id = users.id
-WHERE users.del_flg = 0
-ORDER BY posts.created_at DESC
-LIMIT 20
-`
+	FROM posts
+	JOIN users ON posts.user_id = users.id
+	WHERE users.del_flg = 0
+	ORDER BY posts.created_at DESC
+	LIMIT 20
+	`
 	err := db.SelectContext(ctx, &postUsers, query)
 	if err != nil {
 		log.Print(err)
@@ -608,7 +607,7 @@ func getAccountName(w http.ResponseWriter, r *http.Request) {
 	postUsers := []PostUser{}
 
 	query := `
-SELECT
+	SELECT /*+ NO_INDEX(posts user_id_and_created_at_idx) */
   posts.id as post_id
   , posts.user_id as post_user_id
   , posts.body as post_body
@@ -621,12 +620,12 @@ SELECT
   , users.authority as user_authority
   , users.del_flg as user_del_flg
   , users.created_at as user_created_at
-FROM posts
-JOIN users ON posts.user_id = users.id
-WHERE posts.user_id = ?
-ORDER BY posts.created_at DESC
-LIMIT 20
-`
+	FROM posts
+	JOIN users ON posts.user_id = users.id
+	WHERE posts.user_id = ?
+	ORDER BY posts.created_at DESC
+	LIMIT 20
+	`
 	err = db.SelectContext(ctx, &postUsers, query, user.ID)
 	if err != nil {
 		log.Print(err)
@@ -706,7 +705,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	postUsers := []PostUser{}
 
 	query := `
-SELECT
+	SELECT /*+ NO_INDEX(posts created_at_idx) */
   posts.id as post_id
   , posts.user_id as post_user_id
   , posts.body as post_body
@@ -719,13 +718,13 @@ SELECT
   , users.authority as user_authority
   , users.del_flg as user_del_flg
   , users.created_at as user_created_at
-FROM posts
-JOIN users ON posts.user_id = users.id
-WHERE posts.created_at <= ?
-  AND users.del_flg = 0
-ORDER BY posts.created_at DESC
-LIMIT 20
-`
+	FROM posts
+	JOIN users ON posts.user_id = users.id
+	WHERE posts.created_at <= ?
+	AND users.del_flg = 0
+	ORDER BY posts.created_at DESC
+	LIMIT 20
+	`
 
 	err = db.SelectContext(ctx, &postUsers, query, t.Format(ISO8601Format))
 	if err != nil {
@@ -760,7 +759,7 @@ func getPostsID(w http.ResponseWriter, r *http.Request) {
 	postUsers := []PostUser{}
 
 	query := `
-SELECT
+	SELECT /*+ NO_INDEX(posts user_id_and_created_at_idx) */
   posts.id as post_id
   , posts.user_id as post_user_id
   , posts.body as post_body
@@ -773,11 +772,11 @@ SELECT
   , users.authority as user_authority
   , users.del_flg as user_del_flg
   , users.created_at as user_created_at
-FROM posts
-JOIN users ON posts.user_id = users.id
-WHERE posts.id = ?
-  AND users.del_flg = 0
-`
+	FROM posts
+	JOIN users ON posts.user_id = users.id
+	WHERE posts.id = ?
+	AND users.del_flg = 0
+	`
 
 	err = db.SelectContext(ctx, &postUsers, query, pid)
 	if err != nil {
